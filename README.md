@@ -1,7 +1,7 @@
 # PR Review Loop
 
-PR Review Loop is a Codex skill for reviewing and fixing a pull request repeatedly
-until the complete PR is clean on one exact commit.
+PR Review Loop is a Codex skill for reviewing, securing, and fixing a pull
+request repeatedly until the complete PR is clean on one exact commit.
 
 Its short command is `$prrloop`.
 
@@ -12,13 +12,25 @@ publishes the fix, and starts fresh reviews against the new SHA.
 
 ## What `CLEAN` means
 
-- Independent review tracks found no P0-P3 defects on the same final SHA.
+- A dedicated security review found no reachable P0-P3 defect.
+- All other independent review tracks found no P0-P3 defect on the same SHA.
 - Confirmed findings have regression proof.
 - Relevant local checks and required CI pass.
 - The PR head is the reviewed and tested commit.
 - No actionable review thread remains unresolved.
 
 Missing evidence is reported as `BLOCKED`, not `CLEAN`.
+
+## Security is mandatory
+
+Every round includes a dedicated security track. It follows changed trust
+boundaries from attacker-controlled inputs through authorization and other
+controls to sensitive sinks. Coverage includes authentication, tenant
+isolation, injection, secrets, privacy, migrations, data integrity,
+concurrency, dependencies, and deployment controls where relevant.
+
+The review remains PR-scoped: unchanged code is inspected only when needed to
+prove whether a changed path is safe.
 
 ## Install
 

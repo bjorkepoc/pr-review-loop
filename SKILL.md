@@ -1,6 +1,6 @@
 ---
 name: prrloop
-description: Repeatedly review and fix a pull request until independent reviewers, relevant tests, required CI, and live PR state are all clean on the same final commit. Use for review loops, fix-and-rereview requests, or instructions not to stop until no findings remain.
+description: Repeatedly review, secure, and fix a pull request until a mandatory security track, independent reviewers, relevant tests, required CI, and live PR state are all clean on the same final commit. Use for review loops, fix-and-rereview requests, or instructions not to stop until no findings remain.
 ---
 
 # PR Review Loop
@@ -11,9 +11,10 @@ or an earlier round.
 
 ## Outcome
 
-Stop only when all required review tracks independently report `CLEAN` on the
-same final SHA, the remote PR contains that SHA, relevant local checks pass,
-required CI is green, and no unresolved actionable review thread remains.
+Stop only when the dedicated security track and all other required review
+tracks independently report `CLEAN` on the same final SHA, the remote PR
+contains that SHA, relevant local checks pass, required CI is green, and no
+unresolved actionable review thread remains.
 
 If a required check cannot run, an external service is broken, or a product
 decision is needed, report `BLOCKED`. Never rename incomplete evidence to
@@ -36,11 +37,26 @@ unrelated local work, and explain why first.
 
 ## 2. Choose Independent Review Tracks
 
-Select tracks from the actual diff and repository contracts. For a non-trivial
-PR, normally cover:
+Select tracks from the actual diff and repository contracts. Every round must
+include a dedicated security review whose depth scales with the reachable risk.
+Do not omit it for a small PR.
+
+The security track follows changed inputs and trust boundaries through existing
+controls to their sinks. Cover what applies:
+
+- authentication, authorization, tenant isolation, and least privilege
+- input validation, injection, unsafe deserialization, and command execution
+- secrets, sensitive logging, privacy, retention, and data exposure
+- migrations, row-level security, integrity, concurrency, and fail-closed behavior
+- dependencies, build and deployment controls, and supply-chain exposure
+
+Keep it PR-scoped: inspect unchanged code only when needed to prove whether a
+changed path is safe. Do not silently turn the loop into a whole-repository
+audit.
+
+Other tracks normally cover:
 
 - behavior and product correctness
-- security, privacy, authorization, data integrity, and concurrency
 - tests, migrations, compatibility, build, deployment, and CI
 - minimality and maintainability
 
@@ -68,6 +84,10 @@ Accept a finding only when it contains enough evidence to act:
 Suggestions, speculative hardening, style preferences, duplicates, and gaps
 outside the PR's changed behavior are not defects. Record why they were
 suppressed instead of expanding scope silently.
+
+For a security finding, include the attacker-controlled source or required
+state, the relevant control, the reachable sink, concrete impact, and why the
+control fails. Do not report a theoretical weakness without a reachable path.
 
 `CLEAN` means the reviewer completed its assigned coverage and found no P0-P3
 defect. Silence, timeout, partial coverage, or “looks good” is not `CLEAN`.
@@ -100,7 +120,7 @@ For every confirmed finding:
 3. Reuse repository-native helpers and patterns. Avoid new abstractions,
    dependencies, and unrelated cleanup.
 4. Preserve supported behavior, error semantics, migration compatibility,
-   tenant isolation, and user data.
+   tenant isolation, least privilege, fail-closed behavior, and user data.
 5. Run the focused reproducer immediately after the change.
 
 If two findings share one root cause, use one fix and prove both paths. Keep a
@@ -114,7 +134,8 @@ Run checks in this order:
 2. focused regression tests
 3. owning package or subsystem tests
 4. repository-wide checks proportional to blast radius
-5. build, migration, integration, or security checks required by the PR
+5. build, migration, integration, and repository-native security checks
+   required by the PR
 
 Inspect the final diff for accidental files. Commit only intentional changes
 using the repository's commit convention, push normally to the existing PR
@@ -145,7 +166,8 @@ retrace the root cause before editing again.
 
 Declare success only when one immutable final SHA satisfies every item:
 
-- all planned review tracks explicitly returned `CLEAN`
+- the dedicated security track explicitly returned `CLEAN`
+- all other planned review tracks explicitly returned `CLEAN`
 - every earlier confirmed finding has a fix and regression proof
 - no unresolved actionable PR thread or requested change remains
 - focused and repository-required local checks pass
