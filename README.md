@@ -1,71 +1,70 @@
-# PR Review Loop
+# prrloop
 
-PR Review Loop is a Codex skill for reviewing, securing, and fixing a pull
-request repeatedly until the complete PR is clean on one exact commit.
+A skill for coding agents that loops on a GitHub pull request. It reviews the
+PR, fixes what the reviews find, pushes, and then reviews the whole PR again.
+It keeps going until one commit passes everything, or it stops and tells you
+what's in the way.
 
-Its short command is `$prrloop`.
+I made it because agents kept doing one round of fixes and calling the PR done
+without looking at the result again. Fixes can break things too, so every push
+gets a fresh review of the whole PR.
 
-It prevents a common false finish: fixing one round of findings, then calling
-the PR clean without re-reviewing the changed result. Each round freezes the
-remote SHA, validates findings, fixes root causes, runs relevant checks,
-publishes the fix, and starts fresh reviews against the new SHA.
+## What counts as clean
 
-## What `CLEAN` means
+You get `CLEAN` only when all of this holds for the same commit:
 
-- A dedicated security review found no reachable P0-P3 defect.
-- All other independent review tracks found no P0-P3 defect on the same SHA.
-- Confirmed findings have regression proof.
-- Relevant local checks and required CI pass.
-- The PR head is the reviewed and tested commit.
-- No actionable review thread remains unresolved.
+- the security review (it runs every round, even on small PRs) and the other
+  reviews (correctness, tests and build) have nothing open
+- every finding and review comment is fixed, rejected with a reason, or left
+  because you said so
+- every fix has a test, or a repro that was run before and after the fix
+- the relevant local checks pass and required CI is green
+- that commit is still the PR head
 
-Missing evidence is reported as `BLOCKED`, not `CLEAN`.
+Findings are graded P0 to P3 (see [SKILL.md](SKILL.md)). The agent checks each
+one itself and rejects the ones that don't hold up, with the reason in the
+report. Style nitpicks don't count. If something can't be checked, or the loop
+stops making progress, you get `BLOCKED` and the reason.
 
-## Security is mandatory
-
-Every round includes a dedicated security track. It follows changed trust
-boundaries from attacker-controlled inputs through authorization and other
-controls to sensitive sinks. Coverage includes authentication, tenant
-isolation, injection, secrets, privacy, migrations, data integrity,
-concurrency, dependencies, and deployment controls where relevant.
-
-The review remains PR-scoped: unchanged code is inspected only when needed to
-prove whether a changed path is safe.
+`CLEAN` isn't an approval. A person should still review the PR before it's merged.
 
 ## Install
 
 ```sh
-mkdir -p ~/.codex/skills
 git clone https://github.com/bjorkepoc/pr-review-loop.git ~/.codex/skills/prrloop
 ```
 
-Start a new Codex task after installation so the skill catalog reloads.
+If it doesn't show up, start a new session. Update it with
+`git -C ~/.codex/skills/prrloop pull`. Other agents that load `SKILL.md`
+folders can use it too, just clone it into their skills folder instead
+(often `~/.agents/skills`).
 
-## Use
+You need `gh` logged in, or some other way for the agent to read the PR and its
+checks. Without push access to the PR branch it can still make the fixes
+locally, but it stops at `BLOCKED`.
 
-Invoke it directly:
+## Usage
 
 ```text
-$prrloop review PR #123, fix every confirmed finding, and loop until clean
+$prrloop PR #123
 ```
 
-Or ask naturally:
+Or just ask for it:
 
 ```text
-Run a review loop on this PR. Find and fix defects, then rerun independent
-reviews until every track is clean on the same final commit.
+Loop on this PR. Fix what you find and keep re-reviewing until it's clean.
 ```
 
-The skill uses the repository's own instructions, checks, and commit
-conventions. It can work with any language or test stack. Independent agents
-and live GitHub access improve coverage; without them it reports the limitation
-instead of overstating the result.
+It uses the repo's own instructions, test commands and commit style, so it
+works with any language or test setup. If the agent can't start subagents, it
+runs the reviews one after another and says so in the report.
 
-## Safety
+## What it won't do unless you ask
 
-PR Review Loop preserves unrelated work and stays on the existing PR branch. It does
-not create branches, rewrite history, force-push, merge, resolve threads, or
-post comments without explicit authorization.
+It works on the existing PR branch (in a separate worktree if your checkout is
+on another branch) and leaves your uncommitted changes alone. It won't create
+other branches, rewrite pushed history, force-push, merge, mark the PR ready,
+resolve threads, dismiss reviews or post comments.
 
 ## License
 
